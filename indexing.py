@@ -14,8 +14,42 @@ try:
 		else:
 			plt.savefig(plotFp)
 		plt.close()
+	def plotFundamentalMBRs(MBRs, dpi  = 1200, plotFp = None) -> None:
+		plt.rcParams["figure.dpi"] = dpi
+		plt.rcParams["savefig.dpi"] = dpi
+		fig, ax = plt.subplots()
+		for mbr in MBRs:
+			x_low, x_high, y_low, y_high = mbr
+			rect = plt.Rectangle((x_low, y_low), x_high - x_low, y_high - y_low, facecolor = "none", edgecolor = "blue", linewidth = 0.2)
+			ax.add_patch(rect)
+		ax.autoscale()
+		ax.set_aspect("equal", "box")
+		if plotFp is None:
+			plt.show()
+		else:
+			plt.savefig(plotFp)
+		plt.close()
+	def plotMBRs(MBRs, dpi  = 1200, plotFp = None) -> None:
+		colors = ["red", "orange", "green", "blue", "black"]
+		plt.rcParams["figure.dpi"] = dpi
+		plt.rcParams["savefig.dpi"] = dpi
+		fig, ax = plt.subplots()
+		max_layer = max([mbr[1] for mbr in MBRs])
+		for mbr in MBRs:
+			x_low, x_high, y_low, y_high = mbr[0]
+			rect = plt.Rectangle((x_low, y_low), x_high - x_low, y_high - y_low, facecolor = "none", edgecolor = colors[mbr[1] % len(colors)], linewidth = (max_layer - mbr[1] + 1) / 5, alpha = 1 - mbr[1] / 10)
+			ax.add_patch(rect)
+		ax.autoscale()
+		ax.set_aspect("equal", "box")
+		if plotFp is None:
+			plt.show()
+		else:
+			plt.savefig(plotFp)
+		plt.close()
 except:
 	def plotCoords(coords, dpi = 1200, plotFp = None) -> None:
+		return None
+	def plotFundamentalMBRs(MBRs, dpi = 1200, plotFp = None) -> None:
 		return None
 try:
 	os.chdir(os.path.abspath(os.path.dirname(__file__))) # cd into the location path of this script
@@ -29,7 +63,9 @@ defaultTime = 5
 coordsFilepath = "coords.txt"
 offsetsFilepath = "offsets.txt"
 rTreeFilepath = "Rtree.txt"
-plotFilepath = "plot.png"
+plotCoordFilepath = "plotCoord.png"
+plotFundamentalMBRFilepath = "plotFundamentalMBR.png"
+plotMBRFilepath = "plotMBR.png"
 
 
 # class #
@@ -113,6 +149,21 @@ def checkOffsetCoords(coords, offsets) -> bool:
 		print("The offsets do not cover the coords as offsets end at {0} while coords end at {1}. ".format(offsets[-1][-1], len(coords) - 1))
 		return False
 	return True
+
+def getFundamentalMBR(rTree, fMBRs) -> list:
+	if isinstance(rTree, RTreeNode):
+		for entry in rTree.entries:
+			getFundamentalMBR(entry, fMBRs)
+	else:
+		fMBRs.append(rTree[1])
+
+def getMBR(rTree, MBRs, layer = 0) -> list:
+	if isinstance(rTree, RTreeNode):
+		MBRs.append((rTree.MBR, layer))
+		for entry in rTree.entries:
+			getMBR(entry, MBRs, layer + 1)
+	else:
+		MBRs.append((rTree[1], layer))
 
 
 # handle indexing #
@@ -320,10 +371,17 @@ def main() -> int:
 	if not checkOffsetCoords(coords, offsets):
 		preExit()
 		return EXIT_FAILURE
-	plotCoords(coords, plotFp = plotFilepath)
+	plotCoords(coords, plotFp = plotCoordFilepath)
 	
 	# handle indexing #
 	rTree = index(coords, offsets)
+	fMBRs = []
+	MBRs = []
+	getFundamentalMBR(rTree, fMBRs)
+	getMBR(rTree, MBRs)
+	MBRs.reverse()
+	plotFundamentalMBRs(fMBRs, plotFp = plotFundamentalMBRFilepath)
+	plotMBRs(MBRs, plotFp = plotMBRFilepath)
 	
 	# make output #
 	doDumpRTree(rTree, filepath = commandlineArgument["rTree"])
